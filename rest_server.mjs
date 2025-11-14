@@ -65,9 +65,20 @@ app.get('/codes', (req, res) => {
 
 // GET request handler for neighborhoods
 app.get('/neighborhoods', (req, res) => {
-    console.log(req.query); // query object (key-value pairs after the ? in the url)
+    if(req.query.hasOwnProperty("id")) {
+        let id_list = req.query.id.split(",").map( str => parseInt(str, 10)); //get array of ids
+        let placeholders = new Array(id_list.length).fill('?').join(','); //make a string with ? for each id
+        let sql = `SELECT * FROM Neighborhoods WHERE neighborhood_number IN (${placeholders})`; //create sql query with ?s
+        dbSelect(sql, id_list)
+            .then( data => res.status(200).type('json').send(data));
+    } else {
+        let sql = 'SELECT * FROM Neighborhoods';
+        dbSelect(sql)
+            .then( data => res.status(200).type('json').send(data));
+    }
+
     
-    res.status(200).type('json').send({}); // <-- you will need to change this
+    //res.status(200).type('json').send({}); // <-- you will need to change this
 });
 
 // GET request handler for crime incidents
