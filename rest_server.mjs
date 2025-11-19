@@ -58,9 +58,22 @@ function dbRun(query, params) {
  ********************************************************************/
 // GET request handler for crime codes
 app.get('/codes', (req, res) => {
-    console.log(req.query); // query object (key-value pairs after the ? in the url)
-    
-    res.status(200).type('json').send({}); // <-- you will need to change this
+    if(req.query.hasOwnProperty('code')){
+        let code_list = req.query.code.split(',').parseInt;
+        let sql = 'SELECT * FROM Codes WHERE code IN (' + req.query.code + ')';
+        dbSelect(sql,code_list)
+        .then(data => res.status(200).type('json').send(data))
+        .catch((err) => {
+            console.log(err);
+        })
+    }else{
+        let sql = 'SELECT * FROM Codes';
+        dbSelect(sql)
+        .then(data => res.status(200).type('json').send(data))
+        .catch((err) => {
+            console.log(err);
+        })
+    }
 });
 
 // GET request handler for neighborhoods
