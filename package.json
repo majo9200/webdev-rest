@@ -9,7 +9,6 @@
     "contributors": [],
     "repository": "https://github.com/majo9200/webdev-rest",
     "dependencies": {
-        "expres": "^0.0.5",
         "express": "^4.21.2",
         "sqlite3": "^5.1.6"
     }
