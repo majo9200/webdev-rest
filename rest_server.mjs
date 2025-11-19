@@ -65,28 +65,36 @@ app.get('/codes', (req, res) => {
 
 // GET request handler for neighborhoods
 app.get('/neighborhoods', (req, res) => {
-    if(req.query.hasOwnProperty("id")) {
-        let id_list = req.query.id.split(",").map( str => parseInt(str, 10)); //get array of ids
-        let placeholders = new Array(id_list.length).fill('?').join(','); //make a string with ? for each id
-        let sql = `SELECT * FROM Neighborhoods WHERE neighborhood_number IN (${placeholders})`; //create sql query with ?s
-        dbSelect(sql, id_list)
-            .then( data => res.status(200).type('json').send(data));
-    } else {
-        let sql = 'SELECT * FROM Neighborhoods';
-        dbSelect(sql)
-            .then( data => res.status(200).type('json').send(data));
+    let sql = 'SELECT * FROM Neighborhoods';
+    if(req.query.id) {
+        sql += `WHERE neighborhood_number IN (${req.query.id})`; //create sql query with ids
     }
-
-    
-    //res.status(200).type('json').send({}); // <-- you will need to change this
+    dbSelect(sql)
+        .then( data => res.status(200).type('json').send(data))
+        .catch( err => res.status(500).type('text').send(err));
 });
 
 // GET request handler for crime incidents
 app.get('/incidents', (req, res) => {
-    console.log(req.query); // query object (key-value pairs after the ? in the url)
-    
-    let limit = req.query.limit ? parseInt(req.query.limit) : 3; //Default limit is 3
+    let limit = req.query.limit ? req.query.limit : 1000; //Default limit is 1000
 
+    let constraints = [1];
+
+    if(req.query.start_date) {
+        constraints.push(`date_time >= (${req.query.start_date})`);
+    }
+    if(req.query.end_date) {
+        constraints.push(`date_time <= (${req.query.end_date})`);
+    }
+    if(req.query.code) {
+        constraints.push(`code IN (${req.query.code})`);
+    }
+    if(req.query.grid) {
+        constraints.push(`police_grid IN (${req.query.grid})`);
+    }
+    if(req.query.neighborhood) {
+        constraints.push(`neighborhood_number IN (${req.query.neighborhood})`);
+    }
     let query = `
         SELECT
             case_number,
@@ -98,19 +106,14 @@ app.get('/incidents', (req, res) => {
             neighborhood_number,
             block
         FROM incidents
+        WHERE ${constraints.join(" AND ")} 
         ORDER BY date_time DESC
         LIMIT ?
     `;
-
-    db.all(query, [limit], (err, rows) => {
-        if (err) {
-            return res.status(500).type('txt').send("database error");
-        }
-
-        let response = [...rows, "..."];
-
-        res.status(200).type('json').send(response);
-    });
+    console.log(query);
+    dbSelect(query, limit)
+        .then( data => res.status(200).type('json').send(data))
+        .catch( err => res.status(500).type('text').send(err));
 });
 
 
@@ -118,6 +121,7 @@ app.get('/incidents', (req, res) => {
 // PUT request handler for new crime incident
 app.put('/new-incident', (req, res) => {
     console.log(req.body); // uploaded data
+
     
     res.status(200).type('txt').send('OK'); // <-- you may need to change this
 });
