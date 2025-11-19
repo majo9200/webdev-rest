@@ -78,17 +78,55 @@ app.get('/codes', (req, res) => {
 
 // GET request handler for neighborhoods
 app.get('/neighborhoods', (req, res) => {
-    console.log(req.query); // query object (key-value pairs after the ? in the url)
+    if(req.query.hasOwnProperty("id")) {
+        let id_list = req.query.id.split(",").map( str => parseInt(str, 10)); //get array of ids
+        let placeholders = new Array(id_list.length).fill('?').join(','); //make a string with ? for each id
+        let sql = `SELECT * FROM Neighborhoods WHERE neighborhood_number IN (${placeholders})`; //create sql query with ?s
+        dbSelect(sql, id_list)
+            .then( data => res.status(200).type('json').send(data));
+    } else {
+        let sql = 'SELECT * FROM Neighborhoods';
+        dbSelect(sql)
+            .then( data => res.status(200).type('json').send(data));
+    }
+
     
-    res.status(200).type('json').send({}); // <-- you will need to change this
+    //res.status(200).type('json').send({}); // <-- you will need to change this
 });
 
 // GET request handler for crime incidents
 app.get('/incidents', (req, res) => {
     console.log(req.query); // query object (key-value pairs after the ? in the url)
     
-    res.status(200).type('json').send({}); // <-- you will need to change this
+    let limit = req.query.limit ? parseInt(req.query.limit) : 3; //Default limit is 3
+
+    let query = `
+        SELECT
+            case_number,
+            SUBSTR(date_time, 1, 10) AS date,
+            SUBSTR(date_time, 12, 8) AS time,
+            code,
+            incident,
+            police_grid,
+            neighborhood_number,
+            block
+        FROM incidents
+        ORDER BY date_time DESC
+        LIMIT ?
+    `;
+
+    db.all(query, [limit], (err, rows) => {
+        if (err) {
+            return res.status(500).type('txt').send("database error");
+        }
+
+        let response = [...rows, "..."];
+
+        res.status(200).type('json').send(response);
+    });
 });
+
+
 
 // PUT request handler for new crime incident
 app.put('/new-incident', (req, res) => {
