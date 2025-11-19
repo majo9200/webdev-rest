@@ -142,7 +142,9 @@ app.put('/new-incident', (req, res) => {
 // DELETE request handler for new crime incident
 app.delete('/remove-incident', (req, res) => {
     console.log(req.body); // uploaded data
-    
+    //SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=12234314) this will return 1 if exists 0 if not
+    //DELETE FROM Incidents WHERE case_number = 12234314; this will delete that case
+
     res.status(200).type('txt').send('OK'); // <-- you may need to change this
 });
 
