@@ -144,8 +144,17 @@ app.delete('/remove-incident', (req, res) => {
     console.log(req.body); // uploaded data
     //SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=12234314) this will return 1 if exists 0 if not
     //DELETE FROM Incidents WHERE case_number = 12234314; this will delete that case
-
-    res.status(200).type('txt').send('OK'); // <-- you may need to change this
+    let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=${req.body})`
+    if(sqlCheck){
+        let sql = `DELETE FROM Incidents WHERE case_number = ${req.body}`
+        dbSelect(sql)
+        .then(res.status(200).type('txt').send(`removed case ${req.body} from databse`))
+        .catch((err) => {
+            console.log(err);
+        })
+    }else{
+        res.status(500).type('txt').send('Case number does not exist in database');
+    }
 });
 
 /********************************************************************
