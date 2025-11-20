@@ -141,20 +141,26 @@ app.put('/new-incident', (req, res) => {
 
 // DELETE request handler for new crime incident
 app.delete('/remove-incident', (req, res) => {
-    console.log(req.body); // uploaded data
-    //SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=12234314) this will return 1 if exists 0 if not
-    //DELETE FROM Incidents WHERE case_number = 12234314; this will delete that case
-    let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=${req.body})`
-    if(sqlCheck){
-        let sql = `DELETE FROM Incidents WHERE case_number = ${req.body}`
-        dbSelect(sql)
-        .then(res.status(200).type('txt').send(`removed case ${req.body} from databse`))
-        .catch((err) => {
+    let case_number = req.body.case_number;
+
+    let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=${case_number})`
+    dbSelect(sqlCheck) //this will return an object that will hold either 1 or 0, depending on if the case number is present in the database
+    .then(data =>{
+        let check = Object.values(data[0])[0]; //grabs the value (0,1) from the only javascript object present
+        if(check){
+            let sql = `DELETE FROM Incidents WHERE case_number = ${case_number}`
+            dbRun(sql)
+            .then(res.status(200).type('txt').send(`removed case ${case_number} from databse`))
+            .catch((err) => {
             console.log(err);
         })
-    }else{
-        res.status(500).type('txt').send('Case number does not exist in database');
-    }
+        }else{
+            res.status(500).type('txt').send('Case number does not exist in database');
+        }
+    })
+    .catch((err) => {
+        console.log(err);
+    })
 });
 
 /********************************************************************
