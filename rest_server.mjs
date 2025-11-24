@@ -133,11 +133,48 @@ app.get('/incidents', (req, res) => {
 
 // PUT request handler for new crime incident
 app.put('/new-incident', (req, res) => {
-    console.log(req.body); // uploaded data
+    let data = req.body;
 
-    
-    res.status(200).type('txt').send('OK'); // <-- you may need to change this
+    let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number = ?) AS found`;
+
+    dbSelect(sqlCheck, [data.case_number])
+        .then(rows => {
+            if (rows[0].found === 1) {
+                return res.status(500).type("txt").send("Case number already exists");
+            }
+
+            let sqlInsert = `
+                INSERT INTO Incidents 
+                (case_number, date_time, code, incident, police_grid, neighborhood_number, block) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            let date_time = `${data.date}T${data.time}`;
+
+
+            let params = [
+                data.case_number,
+                date_time,
+                data.code,
+                data.incident,
+                data.police_grid,
+                data.neighborhood_number,
+                data.block
+            ];
+
+            return dbRun(sqlInsert, params)
+                .then(() => res.status(200).type("txt").send("OK"))
+                .catch(err => {
+                    console.log(err);
+                    res.status(500).type("txt").send("Error inserting new incident");
+                });
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).type("txt").send("Database error");
+        });
 });
+
 
 // DELETE request handler for new crime incident
 app.delete('/remove-incident', (req, res) => {
