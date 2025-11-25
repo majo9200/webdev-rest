@@ -42,12 +42,12 @@ function dbSelect(query, params) {
 // Create Promise for SQLite3 database INSERT or DELETE query
 function dbRun(query, params) {
     return new Promise((resolve, reject) => {
-        db.run(query, params, (err) => {
+        db.run(query, params, function (err) {
             if (err) {
                 reject(err);
             }
             else {
-                resolve();
+                resolve(this.changes);
             }
         });
     });
@@ -58,29 +58,21 @@ function dbRun(query, params) {
  ********************************************************************/
 // GET request handler for crime codes
 app.get('/codes', (req, res) => {
-    if(req.query.hasOwnProperty('code')){
-        let code_list = req.query.code.split(',').parseInt;
-        let sql = 'SELECT * FROM Codes WHERE code IN (' + req.query.code + ')';
-        dbSelect(sql,code_list)
-        .then(data => res.status(200).type('json').send(data))
-        .catch((err) => {
-            console.log(err);
-        })
-    }else{
-        let sql = 'SELECT * FROM Codes';
-        dbSelect(sql)
-        .then(data => res.status(200).type('json').send(data))
-        .catch((err) => {
-            console.log(err);
-        })
+
+    let sql = 'SELECT * FROM Codes';
+    if(req.query.code) {
+        sql += ` WHERE code IN (${req.query.code})`; //create sql query with ids
     }
+    dbSelect(sql)
+        .then( data => res.status(200).type('json').send(data))
+        .catch( err => res.status(500).type('text').send(err));
 });
 
 // GET request handler for neighborhoods
 app.get('/neighborhoods', (req, res) => {
     let sql = 'SELECT * FROM Neighborhoods';
     if(req.query.id) {
-        sql += `WHERE neighborhood_number IN (${req.query.id})`; //create sql query with ids
+        sql += ` WHERE neighborhood_number IN (${req.query.id})`; //create sql query with ids
     }
     dbSelect(sql)
         .then( data => res.status(200).type('json').send(data))
@@ -91,13 +83,14 @@ app.get('/neighborhoods', (req, res) => {
 app.get('/incidents', (req, res) => {
     let limit = req.query.limit ? req.query.limit : 1000; //Default limit is 1000
 
-    let constraints = [1];
+    let constraints = ['1']; //first constraint always evaluates to true. Guarantees that constraints is never empty array
 
+    //add each parameter to constraints array
     if(req.query.start_date) {
-        constraints.push(`date_time >= (${req.query.start_date})`);
+        constraints.push(`date >= '${req.query.start_date}'`);
     }
     if(req.query.end_date) {
-        constraints.push(`date_time <= (${req.query.end_date})`);
+        constraints.push(`date <= '${req.query.end_date}'`);
     }
     if(req.query.code) {
         constraints.push(`code IN (${req.query.code})`);
@@ -108,6 +101,7 @@ app.get('/incidents', (req, res) => {
     if(req.query.neighborhood) {
         constraints.push(`neighborhood_number IN (${req.query.neighborhood})`);
     }
+
     let query = `
         SELECT
             case_number,
@@ -123,7 +117,6 @@ app.get('/incidents', (req, res) => {
         ORDER BY date_time DESC
         LIMIT ?
     `;
-    console.log(query);
     dbSelect(query, limit)
         .then( data => res.status(200).type('json').send(data))
         .catch( err => res.status(500).type('text').send(err));
@@ -133,6 +126,21 @@ app.get('/incidents', (req, res) => {
 
 // PUT request handler for new crime incident
 app.put('/new-incident', (req, res) => {
+    //create sql query with named parameters
+    let sql = 'INSERT INTO Incidents VALUES ($case_number, $date_time,$code,$incident,$police_grid,$neighborhood_number,$block)';
+
+    //create new object with date_time instead of date and time keys
+    let {date, time , ...params} = req.body;
+    params.date_time = `${req.body.date}T${req.body.time}`;
+    //change key names to match sqlite parameter binding
+    Object.keys(params).forEach( key => {
+        params['$' + key] = params[key];
+        delete params[key]
+    })
+    dbRun(sql, params)
+        .then( () => res.status(200).type('text').send(`added case ${req.body.case_number}`))
+        .catch( err => res.status(500).type('text').send(err));
+    /*
     let data = req.body;
 
     let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number = ?) AS found`;
@@ -172,14 +180,24 @@ app.put('/new-incident', (req, res) => {
         .catch(err => {
             console.log(err);
             res.status(500).type("txt").send("Database error");
-        });
+        });*/
 });
 
 
 // DELETE request handler for new crime incident
 app.delete('/remove-incident', (req, res) => {
     let case_number = req.body.case_number;
-
+    let sql = `DELETE FROM Incidents WHERE case_number = ${case_number}`;
+    dbRun(sql)
+        .then( changes => {
+            if(changes) {
+                res.status(200).type('text').send(`removed case ${case_number}`);
+            } else {
+                return Promise.reject("Case number does not exist in database");
+            }
+        })
+        .catch( err => res.status(500).type('text').send(err));
+    /*
     let sqlCheck = `SELECT EXISTS(SELECT 1 FROM Incidents WHERE case_number=${case_number})`
     dbSelect(sqlCheck) //this will return an object that will hold either 1 or 0, depending on if the case number is present in the database
     .then(data =>{
@@ -198,6 +216,8 @@ app.delete('/remove-incident', (req, res) => {
     .catch((err) => {
         console.log(err);
     })
+
+     */
 });
 
 /********************************************************************
